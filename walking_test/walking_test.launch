@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="go1-math-motion" type="twist_sub" name="twist_sub_node"/>
+    <node pkg="go1-math-motion" type="walking_test.py" name="walking_test_node" output="screen"/>
+</launch>

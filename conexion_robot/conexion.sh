@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# NOTA: ejecutar con source conexion.sh
+
 # Camaras Cabeza: 
 # ip: 192.168.123.13
 # user: unitree
@@ -39,11 +41,11 @@ ROS_MASTER_URI_ROBOT="192.168.123.161"
 ROS_HOSTNAME_ROBOT="192.168.123.15"
 # Parametros ROS PC
 ROS_MASTER_URI_PC="192.168.12.1"
-ROS_HOSTNAME_PC="IP_PC"
+ROS_HOSTNAME_PC="192.168.12.40"
 
 # Funcion: Conexion SSH y configuracion ROS en ROBOT
 conexion_ssh(){
-    gnome-terminal -- bash -c "sshpass -p '$SSH_PASS' ssh $SSH_USER@$SSH_HOST;
+    gnome-terminal -- bash -c "sshpass -p '$SSH_PASS' ssh $SSH_USER@$SSH_HOST
                                export ROS_MASTER_URI=http://$ROS_MASTER_URI_ROBOT:11311;
                                export ROS_HOSTNAME=$ROS_HOSTNAME_ROBOT;
                                exec bash"

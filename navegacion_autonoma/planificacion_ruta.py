@@ -4,7 +4,7 @@ import folium
 import csv
 
 # prepare API
-gmaps = googlemaps.Client(key="API-key")
+gmaps = googlemaps.Client(key="AIzaSyBEZvL3tGskyLHol63YZ4-z39AxAZuPgBI")
 # eps 3 entrada eps 2
 # (38.38717735745423, -0.5122577483285744)
 # eps 3 entrada eps 1
@@ -21,11 +21,6 @@ coordenadas = []
 if route:
     # draw map
     map = folium.Map(location=origin, zoom_start=25)
-
-    coordenadas.append(origin)
-
-    # add the origin marker to the map
-    marker = folium.Marker(location=origin).add_to(map)
 
     # get steps of the route
     steps = route[0]["legs"][0]["steps"]

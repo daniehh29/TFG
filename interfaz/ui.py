@@ -9,61 +9,61 @@ import tkintermapview
 import speech_recognition as sr
 import googlemaps
 
-# 🔹 Configurar la API de Google Maps
+# Configurar la API de Google Maps
 API_KEY = "AIzaSyBEZvL3tGskyLHol63YZ4-z39AxAZuPgBI"
 gmaps = googlemaps.Client(key=API_KEY)
 
-# load the model
+# Cargar el modelo de GroundingDINO
 model = load_model("groundingdino/config/GroundingDINO_SwinT_OGC.py", "weights/groundingdino_swint_ogc.pth")
 
-# 🔹 Coordenadas iniciales (simulación, puedes conectar con GPS real)
+# Coordenadas iniciales de muestra
 lat_actual, lon_actual = 38.632786091443634, -0.8661588316334603
 
-# 🔹 Ruta de la imagen
+# Ruta de la imagen de muestra
 IMAGE_PATH = "images/test-4.jpg"
 
-# load the image
+# Cargar la imagen para GroundingDINO
 image_source, image = load_image(IMAGE_PATH)
 
-# 🔹 Crear ventana principal
+# Crear ventana principal
 root = tk.Tk()
 root.title("Tormes UI")
 root.geometry("900x500")
 
-# 🔹 Dividir en tres partes usando frames (eliminando frame3)
+# Dividir en tres partes la interfaz usando frames
 frame1 = Frame(root, bg="black")  # Imagen
-frame2 = Frame(root, bg="white")  # Mapa con GPS
-frame4 = Frame(root, bg="white")  # Instrucciones paso a paso
+frame2 = Frame(root, bg="white")  # Mapa
+frame4 = Frame(root, bg="white")  # Indicaciones
 
 frame1.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
 frame2.grid(row=0, column=1, rowspan=2, padx=5, pady=5, sticky="nsew")  # Ocupa ambas filas de la columna 1
 frame4.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
 
-# 🔹 Configurar las columnas y filas para que se ajusten al tamaño de la ventana
+# Configurar las columnas y filas para que se ajusten al tamaño de la ventana
 root.grid_rowconfigure(0, weight=1)
 root.grid_rowconfigure(1, weight=1)
 root.grid_columnconfigure(0, weight=1)
 root.grid_columnconfigure(1, weight=1)
 
-# 🔹 Cargar y mostrar la imagen
+# Cargar y mostrar la imagen
 img = Image.open(IMAGE_PATH)
 img_tk = ImageTk.PhotoImage(img)
 
 image_label = Label(frame1, image=img_tk)
-image_label.img_tk = img_tk  # Mantener referencia para evitar que se recoja por el garbage collector
+image_label.img_tk = img_tk 
 image_label.pack(fill=tk.BOTH, expand=True)
 
-# 🔹 Mapa con coordenadas actuales
+# Mapa que muestra coordenadas actuales
 map_widget = tkintermapview.TkinterMapView(frame2)
 map_widget.pack(fill=tk.BOTH, expand=True)
 map_widget.set_position(lat_actual, lon_actual)
 marker_actual = map_widget.set_marker(lat_actual, lon_actual, text="Ubicación Actual")
 
-# 🔹 Cuadro de texto para direcciones en frame4
+# Cuadro de texto para mostrar las indicaciones en frame4
 text_widget = Text(frame4, height=10, wrap="word")
 text_widget.pack(side="left", fill="both", expand=True)
 
-# 🔹 Scrollbar
+# Añadir una scrollbar al cuadro de texto
 scrollbar = Scrollbar(frame4, command=text_widget.yview)
 scrollbar.pack(side="right", fill="y")
 text_widget.config(yscrollcommand=scrollbar.set)
@@ -85,7 +85,7 @@ def buscar_lugar(query, lat, lon, radio=5000):
 def obtener_ruta(destino_lat, destino_lon):
     """Calcula la ruta y muestra las indicaciones en la interfaz."""
 
-    # 🔹 LIMPIAR RUTA ANTERIOR
+    # Se limpia la ruta anteriormente mostrada
     map_widget.delete_all_path()
 
     ruta = gmaps.directions((lat_actual, lon_actual), (destino_lat, destino_lon), mode="walking")
@@ -93,7 +93,7 @@ def obtener_ruta(destino_lat, destino_lon):
     if ruta:
         steps = ruta[0]["legs"][0]["steps"]
 
-        # 🔹 Mostrar ruta en el mapa
+        # Se muestra la ruta en el mapa
         waypoints = [(lat_actual, lon_actual)]
         for step in steps:
             end_location = step["end_location"]
@@ -101,13 +101,15 @@ def obtener_ruta(destino_lat, destino_lon):
 
         map_widget.set_path(waypoints)
 
-        # 🔹 Mostrar indicaciones en `frame4`
+        # Se muestran las indicaciones en el cuadro de texto
         text_widget.delete(1.0, tk.END)
 
         for i, step in enumerate(steps):
             instruction = step["html_instructions"].replace("<b>", "").replace("</b>", "").replace("<div>", "").replace("</div>", "")
+            # Se traduce la instruccion a español
+            instruccion = translate(instruction, 'en', 'es')
             distance = step["distance"]["text"]
-            text_widget.insert(tk.END, f"{i+1}. {instruction} ({distance})\n\n")
+            text_widget.insert(tk.END, f"{i+1}. {instruccion} ({distance})\n\n")
 
 def escuchar_comando():
     """Reconoce comandos de voz y ejecuta acciones según el mensaje."""
@@ -174,19 +176,19 @@ def procesar_voz():
 					text_threshold=0.35
 				)
 					
-				# se muestran los resultados
+				# Se muestran los resultados
                 annotated_image = annotate(image_source=image_source, boxes=boxes, logits=logits, phrases=phrases)
 
-                # Convertir la imagen anotada a formato compatible con Tkinter
+                # Se convierte la imagen anotada a formato compatible con Tkinter
                 annotated_image_pil = Image.fromarray(cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB))
                 annotated_image_tk = ImageTk.PhotoImage(annotated_image_pil)
 
-                # Mostrar la imagen anotada en la interfaz
+                # Se muestra la imagen anotada en la interfaz
                 image_label.config(image=annotated_image_tk)
-                image_label.img_tk = annotated_image_tk  # Mantener referencia para evitar que se recoja por el garbage collector
+                image_label.img_tk = annotated_image_tk
 
-# 🔹 Iniciar el reconocimiento de voz en un hilo aparte
+# Se inicia el reconocimiento de voz en un hilo aparte
 threading.Thread(target=procesar_voz, daemon=True).start()
 
-# 🔹 Ejecutar interfaz
+# Se ejecuta el bucle principal de la interfaz
 root.mainloop()

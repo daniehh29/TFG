@@ -18,6 +18,7 @@ model = load_model("groundingdino/config/GroundingDINO_SwinT_OGC.py", "weights/g
 
 # Coordenadas iniciales de muestra
 lat_actual, lon_actual = 38.632786091443634, -0.8661588316334603
+marker_actual = None  # Se definirá después en la interfaz
 
 # Ruta de la imagen de muestra
 IMAGE_PATH = "images/test-4.jpg"
@@ -67,6 +68,49 @@ text_widget.pack(side="left", fill="both", expand=True)
 scrollbar = Scrollbar(frame4, command=text_widget.yview)
 scrollbar.pack(side="right", fill="y")
 text_widget.config(yscrollcommand=scrollbar.set)
+
+def actualizar_gps_en_tiempo_real(puerto="/dev/ttyUSB0", baudrate=4800):
+    import serial
+    import pynmea2
+
+    global lat_actual, lon_actual, marker_actual
+
+    ser = None
+    try:
+        ser = serial.Serial(puerto, baudrate, timeout=1)
+        print(f"📡 Escuchando GPS en {puerto}...")
+
+        while True:
+            linea = ser.readline().decode('ascii', errors='replace').strip()
+            if any(linea.startswith(prefix) for prefix in ('$GPGGA', '$GNGGA', '$GPRMC', '$GNRMC')):
+                try:
+                    msg = pynmea2.parse(linea)
+                    nueva_lat = msg.latitude
+                    nueva_lon = msg.longitude
+
+                    if nueva_lat and nueva_lon:
+                        lat_actual = nueva_lat
+                        lon_actual = nueva_lon
+
+                        # Actualizar el marcador en el hilo de Tkinter
+                        root.after(0, actualizar_marcador_en_mapa, nueva_lat, nueva_lon)
+                except pynmea2.ParseError:
+                    print("❌ Error al analizar NMEA.")
+    except serial.SerialException as e:
+        print(f"❌ Error en el puerto serial: {e}")
+    finally:
+        if ser:
+            ser.close()
+            print("🔌 Puerto serial cerrado.")
+
+def actualizar_marcador_en_mapa(lat, lon):
+    global marker_actual
+    map_widget.set_position(lat, lon)
+
+    if marker_actual:
+        marker_actual.set_position(lat, lon)
+    else:
+        marker_actual = map_widget.set_marker(lat, lon, text="Ubicación Actual")
 
 def buscar_lugar(query, lat, lon, radio=5000):
     """Busca un lugar usando Google Places API."""
@@ -187,8 +231,9 @@ def procesar_voz():
                 image_label.config(image=annotated_image_tk)
                 image_label.img_tk = annotated_image_tk
 
-# Se inicia el reconocimiento de voz en un hilo aparte
+# Se inician hilos paralelos para voz y GPS
 threading.Thread(target=procesar_voz, daemon=True).start()
+threading.Thread(target=actualizar_gps_en_tiempo_real, daemon=True).start()
 
 # Se ejecuta el bucle principal de la interfaz
 root.mainloop()

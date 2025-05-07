@@ -8,6 +8,14 @@ import threading
 import tkintermapview
 import speech_recognition as sr
 import googlemaps
+from geopy.distance import geodesic
+import numpy as np
+from shapely.geometry import Point, LineString
+from math import atan2, degrees
+from geopy.distance import distance as geopy_distance
+
+# El índice actual en la lista de checkpoints
+waypoint_index = 1
 
 # Configurar la API de Google Maps
 API_KEY = "AIzaSyBEZvL3tGskyLHol63YZ4-z39AxAZuPgBI"
@@ -25,6 +33,9 @@ IMAGE_PATH = "images/test-4.jpg"
 
 # Cargar la imagen para GroundingDINO
 image_source, image = load_image(IMAGE_PATH)
+
+# Crear vector de checkpoints global
+checkpoints = []
 
 # Crear ventana principal
 root = tk.Tk()
@@ -68,6 +79,49 @@ text_widget.pack(side="left", fill="both", expand=True)
 scrollbar = Scrollbar(frame4, command=text_widget.yview)
 scrollbar.pack(side="right", fill="y")
 text_widget.config(yscrollcommand=scrollbar.set)
+
+def calcular_correccion(coord_actual, segmento):
+    punto = Point(coord_actual[1], coord_actual[0])
+    linea = LineString([(segmento[0][1], segmento[0][0]), (segmento[1][1], segmento[1][0])])
+    punto_proyectado = linea.interpolate(linea.project(punto))
+
+    # Coordenadas del punto más cercano sobre la ruta
+    lat_corr = punto_proyectado.y
+    lon_corr = punto_proyectado.x
+
+    # Vector de corrección
+    delta_lat = lat_corr - coord_actual[0]
+    delta_lon = lon_corr - coord_actual[1]
+
+    # Dirección de corrección (en grados)
+    angulo_rad = atan2(delta_lat, delta_lon)
+    angulo_deg = degrees(angulo_rad)
+
+    # Distancia a corregir
+    distancia = geopy_distance(coord_actual, (lat_corr, lon_corr)).meters
+
+    return (lat_corr, lon_corr), distancia, angulo_deg
+
+def seguimiento_ruta():
+    global waypoint_index, lat_actual, lon_actual, checkpoints
+
+    while True:
+        if len(checkpoints) >= 2 and waypoint_index < len(checkpoints) - 1:
+            actual = (lat_actual, lon_actual)
+            siguiente = checkpoints[waypoint_index + 1]
+
+            # Si estás cerca del siguiente waypoint, avanzar
+            if geopy_distance(actual, siguiente).meters < 5:
+                print(f"✅ Waypoint {waypoint_index + 1} alcanzado.")
+                waypoint_index += 1
+                continue
+
+            # Calcular corrección
+            (lat_corr, lon_corr), desviacion, angulo = calcular_correccion(actual, (checkpoints[waypoint_index], siguiente))
+
+            print(f"📐 Desviación: {desviacion:.2f} m | Corrección: {angulo:.1f}° hacia ({lat_corr:.6f}, {lon_corr:.6f})")
+        
+        time.sleep(1.5)
 
 def actualizar_gps_en_tiempo_real(puerto="/dev/ttyUSB0", baudrate=4800):
     import serial
@@ -142,6 +196,10 @@ def obtener_ruta(destino_lat, destino_lon):
         for step in steps:
             end_location = step["end_location"]
             waypoints.append((end_location["lat"], end_location["lng"]))
+
+        global checkpoints
+        # Se guardan los puntos de la ruta
+        checkpoints = waypoints.copy()
 
         map_widget.set_path(waypoints)
 
@@ -231,9 +289,10 @@ def procesar_voz():
                 image_label.config(image=annotated_image_tk)
                 image_label.img_tk = annotated_image_tk
 
-# Se inician hilos paralelos para voz y GPS
+# Se inician hilos paralelos para voz, GPS y seguimiento de ruta
 threading.Thread(target=procesar_voz, daemon=True).start()
 threading.Thread(target=actualizar_gps_en_tiempo_real, daemon=True).start()
+threading.Thread(target=seguimiento_ruta, daemon=True).start()
 
 # Se ejecuta el bucle principal de la interfaz
 root.mainloop()
